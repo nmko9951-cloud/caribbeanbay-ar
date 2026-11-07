@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CARIBBEANBAY · MOVING POSTER</title>
+<meta name="theme-color" content="#F3EBDD">
+<script src="lib/aframe.min.js"></script>
+<script src="lib/mindar-image-aframe.prod.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--sand:#F3EBDD;--blue:#0142FE;--ink:#1C1C2E;--coral:#FF6B4A}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:'Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:space-between;
+    background:var(--sand);color:var(--ink);padding:calc(28px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box}
+  .screen[hidden]{display:none}
+  .brand{font-weight:900;font-size:clamp(34px,11vw,56px);letter-spacing:-.02em;line-height:.95}
+  .brand small{display:block;font-size:16px;font-weight:700;letter-spacing:.02em;margin-top:12px}
+  .sun{position:absolute;right:24px;top:calc(24px + env(safe-area-inset-top));width:72px;height:72px;border-radius:50%;background:var(--coral)}
+  .rings{align-self:center;width:min(70vw,320px);aspect-ratio:1}
+  .copy{font-size:15px;line-height:1.6}
+  .copy b{font-size:22px;display:block;margin-bottom:6px;letter-spacing:-.01em}
+  .btn{appearance:none;border:0;border-radius:999px;background:var(--blue);color:#fff;font:700 17px/1 'Noto Sans KR',sans-serif;
+    padding:18px 24px;width:100%;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--ink);text-decoration:underline;padding:14px;font-weight:500;font-size:14px}
+  .hud{position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .frame{width:min(66vw,46vh*.707);aspect-ratio:1190/1684;border:2px solid rgba(255,255,255,.9);border-radius:6px;box-shadow:0 0 0 200vmax rgba(0,0,0,.28);transition:opacity .3s}
+  .hint{margin-top:18px;color:#fff;font-weight:700;font-size:15px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+  .found .frame,.found .hint{opacity:0}
+  .tag{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:11;background:var(--sand);color:var(--ink);
+    font-weight:700;font-size:13px;padding:8px 12px;border-radius:999px;opacity:0;transition:opacity .3s}
+  .found .tag{opacity:1}
+  #viewer video{width:100%;height:100%;object-fit:contain;background:var(--sand)}
+  #viewer{padding:0;background:var(--sand)}
+  .pick{position:absolute;left:24px;right:24px;top:calc(16px + env(safe-area-inset-top));display:flex;gap:8px}
+  .pick button{flex:1;appearance:none;border:2px solid var(--ink);background:var(--sand);color:var(--ink);border-radius:999px;font:700 14px/1 'Noto Sans KR',sans-serif;padding:10px 0}
+  .pick button.on{background:var(--ink);color:var(--sand)}
+  #viewer .btn{position:absolute;left:24px;right:24px;width:auto;bottom:calc(24px + env(safe-area-inset-bottom))}
+  a-scene{position:fixed;inset:0}
+  .a-enter-vr,.a-enter-ar,.a-enter-vr-button,.a-enter-ar-button{display:none!important}
+</style>
+</head>
+<body>
+
+<section class="screen" id="intro">
+  <div>
+    <div class="sun"></div>
+    <div class="brand">CARIBBEAN<br>BAY<small>FLOAT · RUSH · WAVE<br>포스터가 움직여요</small></div>
+  </div>
+  <svg class="rings" viewBox="-100 -100 200 200" aria-hidden="true">
+    <g fill="none" stroke="#0142FE" stroke-width="7">
+      <circle r="90"><animate attributeName="r" values="18;90" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="3s" repeatCount="indefinite"/></circle>
+      <circle r="60"><animate attributeName="r" values="18;90" dur="3s" begin="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="3s" begin="1s" repeatCount="indefinite"/></circle>
+      <circle r="30"><animate attributeName="r" values="18;90" dur="3s" begin="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="3s" begin="2s" repeatCount="indefinite"/></circle>
+    </g>
+  </svg>
+  <div>
+    <p class="copy"><b>카메라를 포스터에 비춰 보세요</b>세 포스터 중 어느 것이든 화면 안에 들어오면 물결이 움직이기 시작해요.</p>
+    <button class="btn" id="start">카메라로 보기</button>
+    <button class="btn ghost" id="noCam">카메라 없이 영상으로 보기</button>
+  </div>
+</section>
+
+<section class="screen" id="viewer" hidden>
+  <video id="flat" src="float.mp4" muted loop playsinline></video>
+  <div class="pick" id="pick"><button data-v="float">FLOAT</button><button data-v="rush">RUSH</button><button data-v="wave">WAVE</button></div>
+  <button class="btn" id="back">처음으로</button>
+</section>
+
+<div class="hud" id="hud" hidden>
+  <div class="frame"></div>
+  <div class="hint">포스터를 테두리 안에 맞춰 주세요</div>
+</div>
+<div class="tag" id="tag"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const POSTERS = [
+    { key: 'float', tag: 'FLOAT · 튜브 위의 여유' },
+    { key: 'rush',  tag: 'RUSH · 슬라이드의 짜릿함' },
+    { key: 'wave',  tag: 'WAVE · 다시 만난 해 질 녘' },
+  ];
+  const setFlat = key => {
+    $('flat').src = key + '.mp4'; $('flat').play();
+    document.querySelectorAll('#pick button').forEach(b => b.classList.toggle('on', b.dataset.v === key));
+  };
+  document.querySelectorAll('#pick button').forEach(b => b.onclick = () => setFlat(b.dataset.v));
+
+  $('noCam').onclick = () => { $('intro').hidden = true; $('viewer').hidden = false; setFlat('float'); };
+  $('back').onclick = () => { $('flat').pause(); $('viewer').hidden = true; $('intro').hidden = false; };
+
+  $('start').onclick = () => {
+    $('intro').hidden = true; $('hud').hidden = false;
+    const h = (1684 / 1190).toFixed(4);
+    document.body.insertAdjacentHTML('beforeend', `
+      <a-scene id="scene" mindar-image="imageTargetSrc: targets.mind; maxTrack: 1; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001"
+        color-space="sRGB" renderer="colorManagement: true" vr-mode-ui="enabled: false" xr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        <a-assets>${POSTERS.map(p => `<video id="v-${p.key}" src="${p.key}.mp4" preload="auto" muted loop playsinline webkit-playsinline crossorigin="anonymous"></video>`).join('')}</a-assets>
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        ${POSTERS.map((p, i) => `<a-entity id="t-${p.key}" mindar-image-target="targetIndex: ${i}">
+          <a-video src="#v-${p.key}" width="1" height="${h}"></a-video></a-entity>`).join('')}
+      </a-scene>`);
+    let showing = 0;
+    POSTERS.forEach(p => {
+      const v = $('v-' + p.key);
+      v.play().then(() => v.pause()).catch(() => {});      // iOS: 첫 터치에서 재생 권한 확보
+      const t = $('t-' + p.key);
+      t.addEventListener('targetFound', () => { v.play(); showing++; $('tag').textContent = p.tag; document.body.classList.add('found'); });
+      t.addEventListener('targetLost',  () => { v.pause(); showing = Math.max(0, showing - 1); if (!showing) document.body.classList.remove('found'); });
+    });
+    $('scene').addEventListener('arError', () => {
+      alert('카메라를 열 수 없어요. 브라우저의 카메라 권한을 확인해 주세요.');
+      location.reload();
+    });
+  };
+</script>
+</body>
+</html>

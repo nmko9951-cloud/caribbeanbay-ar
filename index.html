@@ -86,6 +86,38 @@
 
 <script>
   const $ = id => document.getElementById(id);
+  const Q = new URLSearchParams(location.search);
+  const SMOOTH = Q.get('smooth') !== '0';
+  // 인식 위치를 그대로 따라가지 않고 부드럽게 따라가는 컴포넌트.
+  // - 순간적으로 크게 튀는 값(반복 무늬 때문에 한 줄 옆으로 잘못 맞춘 경우)은 몇 프레임 무시한다
+  // - 잠깐 놓쳐도 hold(ms) 동안은 그 자리에 계속 보여 준다
+  AFRAME.registerComponent('smooth-follow', {
+    schema: { target: { type: 'selector' }, hold: { default: 600 }, jump: { default: 0.12 }, tau: { default: 90 } },
+    init() {
+      const T = AFRAME.THREE;
+      this.p = new T.Vector3(); this.q = new T.Quaternion(); this.s = new T.Vector3();
+      this.tp = new T.Vector3(); this.tq = new T.Quaternion(); this.ts = new T.Vector3();
+      this.has = false; this.out = 0; this.seen = 0; this.el.object3D.visible = false;
+    },
+    tick(t, dt) {
+      const src = this.data.target && this.data.target.object3D; if (!src) return;
+      const o = this.el.object3D;
+      if (src.visible) {
+        src.updateMatrixWorld(true); src.matrixWorld.decompose(this.tp, this.tq, this.ts);
+        if (!this.has) { this.p.copy(this.tp); this.q.copy(this.tq); this.s.copy(this.ts); this.has = true; o.visible = true; this.el.emit('follow-show'); }
+        else {
+          const d = this.tp.distanceTo(this.p) / Math.max(this.s.x, 1e-6);
+          if (d > this.data.jump && this.out < 4) { this.out++; this.seen = t; return; }   // 튀는 값은 잠시 무시
+          this.out = 0;
+          const a = Math.min(1, 1 - Math.exp(-(dt || 16) / this.data.tau) + d * 0.8);   // 크게 움직이면 빨리, 떨림은 천천히
+          this.p.lerp(this.tp, a); this.q.slerp(this.tq, a); this.s.lerp(this.ts, a);
+        }
+        this.seen = t;
+      } else if (this.has && t - this.seen > this.data.hold) { this.has = false; o.visible = false; this.el.emit('follow-hide'); return; }
+      if (this.has) { o.position.copy(this.p); o.quaternion.copy(this.q); o.scale.copy(this.s); }
+    },
+  });
+
   const POSTERS = [
     { key: 'float', tag: 'FLOAT · 튜브 위의 여유' },
     { key: 'rush',  tag: 'RUSH · 슬라이드의 짜릿함' },
@@ -136,11 +168,14 @@
     $('intro').hidden = true; $('hud').hidden = false;
     const h = (1684 / 1190).toFixed(4);
     document.body.insertAdjacentHTML('beforeend', `
-      <a-scene id="scene" mindar-image="imageTargetSrc: targets.mind; maxTrack: 1; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001"
+      <a-scene id="scene" mindar-image="imageTargetSrc: ${Q.get('t')||'targets.mind'}; maxTrack: 1; uiScanning: no; uiLoading: no; filterMinCF: ${Q.get('mcf')||0.0001}; filterBeta: ${Q.get('beta')||0.001}; missTolerance: ${Q.get('miss')||5}; warmupTolerance: ${Q.get('warm')||5}"
         color-space="sRGB" renderer="colorManagement: true" vr-mode-ui="enabled: false" xr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         <a-assets>${POSTERS.map(p => `<video id="v-${p.key}" src="${p.key}.mp4" preload="auto" muted loop playsinline webkit-playsinline crossorigin="anonymous"></video>`).join('')}</a-assets>
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        ${POSTERS.map((p, i) => `<a-entity id="t-${p.key}" mindar-image-target="targetIndex: ${i}">
+        ${POSTERS.map((p, i) => SMOOTH
+          ? `<a-entity id="t-${p.key}" mindar-image-target="targetIndex: ${i}"></a-entity>
+             <a-entity id="f-${p.key}" smooth-follow="target: #t-${p.key}"><a-video src="#v-${p.key}" width="1" height="${h}"></a-video></a-entity>`
+          : `<a-entity id="t-${p.key}" mindar-image-target="targetIndex: ${i}">
           <a-video src="#v-${p.key}" width="1" height="${h}"></a-video></a-entity>`).join('')}
       </a-scene>`);
     let showing = 0;
@@ -148,8 +183,11 @@
       const v = $('v-' + p.key);
       v.play().then(() => v.pause()).catch(() => {});      // iOS: 첫 터치에서 재생 권한 확보
       const t = $('t-' + p.key);
-      t.addEventListener('targetFound', () => { v.play(); showing++; $('tag').textContent = p.tag; document.body.classList.add('found'); });
-      t.addEventListener('targetLost',  () => { v.pause(); showing = Math.max(0, showing - 1); if (!showing) document.body.classList.remove('found'); });
+      const show = () => { v.play(); showing++; $('tag').textContent = p.tag; document.body.classList.add('found'); };
+      const hide = () => { v.pause(); showing = Math.max(0, showing - 1); if (!showing) document.body.classList.remove('found'); };
+      if (SMOOTH) {   // 부드럽게 따라가는 쪽이 실제로 보이고 사라지는 때에 맞춰 재생·멈춤 (잠깐 놓쳐도 멈칫하지 않음)
+        const f = $('f-' + p.key); f.addEventListener('follow-show', show); f.addEventListener('follow-hide', hide);
+      } else { t.addEventListener('targetFound', show); t.addEventListener('targetLost', hide); }
     });
     $('scene').addEventListener('arReady', () => say(null));
     $('scene').addEventListener('arError', () => {

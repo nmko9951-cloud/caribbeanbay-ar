@@ -11,7 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{--sand:#F3EBDD;--blue:#0142FE;--ink:#1C1C2E;--coral:#FF6B4A}
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:'Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:'Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  /* 카메라 화면(MindAR가 z-index:-2로 body 뒤에 붙임)이 보이도록 body는 투명, 검은 바탕은 html에만 */
+  html{background:#000}
+  body{background:transparent}
+  .status{position:fixed;left:16px;right:16px;top:calc(16px + env(safe-area-inset-top));z-index:30;background:var(--sand);color:var(--ink);
+    border-radius:16px;padding:14px 16px;font-size:14px;line-height:1.55;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+  .status[hidden]{display:none}
+  .status b{display:block;font-size:16px;margin-bottom:4px}
+  .status .btn{margin-top:12px;padding:14px}
+  .status code{font-size:11px;opacity:.55}
   .screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:space-between;
     background:var(--sand);color:var(--ink);padding:calc(28px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom));box-sizing:border-box}
   .screen[hidden]{display:none}
@@ -73,6 +82,7 @@
   <div class="hint">포스터를 테두리 안에 맞춰 주세요</div>
 </div>
 <div class="tag" id="tag"></div>
+<div class="status" id="status" hidden></div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -90,7 +100,39 @@
   $('noCam').onclick = () => { $('intro').hidden = true; $('viewer').hidden = false; setFlat('float'); };
   $('back').onclick = () => { $('flat').pause(); $('viewer').hidden = true; $('intro').hidden = false; };
 
-  $('start').onclick = () => {
+  const ua = navigator.userAgent;
+  const IOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|Line\/|NAVER|DaumApps|everytimeApp/i.test(ua);
+  const say = (title, body, retry) => {
+    const s = $('status'); s.hidden = !title;
+    if (!title) return;
+    s.innerHTML = `<b>${title}</b>${body}` + (retry ? `<button class="btn" onclick="location.reload()">처음부터 다시</button>` : '');
+  };
+  const cameraHelp = name => {
+    if (IN_APP) return ['앱 안에서는 카메라를 쓸 수 없어요',
+      `오른쪽 위(또는 아래) 메뉴에서 <b style="display:inline;font-size:inherit">${IOS ? 'Safari로 열기' : '다른 브라우저로 열기'}</b>를 눌러 주세요.`];
+    if (name === 'NotAllowedError' || name === 'SecurityError') return ['카메라 권한이 꺼져 있어요', IOS
+      ? '주소창 왼쪽 <b style="display:inline;font-size:inherit">aA</b> → 웹 사이트 설정 → 카메라를 <b style="display:inline;font-size:inherit">허용</b>으로 바꾼 뒤 다시 시도해 주세요. 그래도 안 되면 아이폰 설정 → 앱 → Safari → 카메라를 ‘확인’이나 ‘허용’으로 바꿔 주세요.'
+      : '주소창 왼쪽 자물쇠 아이콘 → 권한 → 카메라를 허용으로 바꾼 뒤 다시 시도해 주세요.'];
+    if (name === 'NotReadableError' || name === 'AbortError') return ['다른 앱이 카메라를 쓰고 있어요',
+      '카메라·영상통화 앱을 모두 닫은 뒤 다시 시도해 주세요.'];
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') return ['카메라를 찾지 못했어요', '카메라가 있는 휴대폰에서 열어 주세요.'];
+    return ['카메라를 열 수 없어요', '사파리(아이폰)나 크롬(안드로이드)에서 주소를 직접 열어 주세요.'];
+  };
+  if (IN_APP) say(...cameraHelp('inapp'));
+
+  $('start').onclick = async () => {
+    // 1) 버튼을 누른 그 순간에 카메라 권한부터 받는다 (아이폰은 이렇게 해야 권한 창이 확실히 뜬다)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { say(...cameraHelp('unsupported'), true); return; }
+    say('카메라를 켜는 중…', '권한을 묻는 창이 뜨면 ‘허용’을 눌러 주세요.');
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment' } });
+      s.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      const [t, b] = cameraHelp(e && e.name);
+      say(t, b + `<br><code>${(e && e.name) || 'Error'}</code>`, true); return;
+    }
+    say('포스터 인식 준비 중…', '처음 한 번은 몇 초 걸려요.');
     $('intro').hidden = true; $('hud').hidden = false;
     const h = (1684 / 1190).toFixed(4);
     document.body.insertAdjacentHTML('beforeend', `
@@ -109,9 +151,10 @@
       t.addEventListener('targetFound', () => { v.play(); showing++; $('tag').textContent = p.tag; document.body.classList.add('found'); });
       t.addEventListener('targetLost',  () => { v.pause(); showing = Math.max(0, showing - 1); if (!showing) document.body.classList.remove('found'); });
     });
+    $('scene').addEventListener('arReady', () => say(null));
     $('scene').addEventListener('arError', () => {
-      alert('카메라를 열 수 없어요. 브라우저의 카메라 권한을 확인해 주세요.');
-      location.reload();
+      $('hud').hidden = true;
+      say(...cameraHelp('arError'), true);
     });
   };
 </script>

@@ -46,6 +46,39 @@
   .pick button{flex:1;appearance:none;border:2px solid var(--ink);background:var(--sand);color:var(--ink);border-radius:999px;font:700 14px/1 'Noto Sans KR',sans-serif;padding:10px 0}
   .pick button.on{background:var(--ink);color:var(--sand)}
   #viewer .btn{position:absolute;left:24px;right:24px;width:auto;bottom:calc(24px + env(safe-area-inset-bottom))}
+  .btn.line{background:transparent;color:var(--ink);border:2px solid var(--ink);margin-top:10px;padding:16px 24px}
+  /* PARK MAP */
+  #mapScreen{justify-content:flex-start;gap:18px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .mhead{display:flex;align-items:center;gap:12px}
+  .mback{appearance:none;border:2px solid var(--ink);background:transparent;color:var(--ink);width:44px;height:44px;border-radius:50%;font:700 20px/1 system-ui;flex:none;cursor:pointer}
+  .mhead b{display:block;font-weight:900;font-size:26px;letter-spacing:-.01em;line-height:1.1}
+  .mhead span{display:block;font-size:13px;line-height:1.4;opacity:.75;margin-top:2px}
+  .mwrap{position:relative;border-radius:14px;overflow:auto;background:#FAF1DB;box-shadow:0 0 0 2px var(--ink);-webkit-overflow-scrolling:touch;flex:none}
+  .mzoom{position:relative;width:100%;transition:width .25s}
+  .mwrap.zoomed{max-height:62vh}
+  .mwrap.zoomed .mzoom{width:230%}
+  .mzoom img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
+  .hot{position:absolute;appearance:none;border:0;background:transparent;border-radius:28px;cursor:pointer;padding:0}
+  .hot:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+  .pin{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--coral);color:#fff;
+    display:grid;place-items:center;font-size:9px;pointer-events:none;box-shadow:0 0 0 2px #fff}
+  .pin::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--coral);animation:ping 1.8s ease-out infinite}
+  @keyframes ping{from{transform:scale(1);opacity:.9}to{transform:scale(2.1);opacity:0}}
+  @media (prefers-reduced-motion:reduce){.pin::after{animation:none}}
+  .mtools{display:flex;justify-content:flex-end;margin-top:-8px}
+  .mtools button{appearance:none;border:0;background:transparent;color:var(--ink);font:700 13px/1 'Noto Sans KR',sans-serif;text-decoration:underline;padding:6px 0;cursor:pointer}
+  .zones{display:grid;gap:10px}
+  .zone{appearance:none;display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:12px;text-align:left;width:100%;
+    border:2px solid var(--ink);border-radius:14px;background:transparent;color:var(--ink);padding:14px 16px;cursor:pointer;font-family:inherit}
+  .zone i{width:14px;height:40px;border-radius:7px}
+  .zone b{display:block;font-weight:900;font-size:18px;letter-spacing:.02em}
+  .zone span{display:block;font-size:13px;opacity:.75}
+  .zone em{font-style:normal;font-weight:700;font-size:13px;color:var(--blue);white-space:nowrap}
+  .facil{font-size:13px;line-height:1.5;padding-bottom:8px}
+  .facil h3{font-size:14px;margin:4px 0 8px}
+  .facil ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+  .facil li{border:1.5px solid rgba(28,28,46,.35);border-radius:999px;padding:6px 12px}
+  .facil p{margin:10px 0 0;opacity:.7}
   a-scene{position:fixed;inset:0}
   .a-enter-vr,.a-enter-ar,.a-enter-vr-button,.a-enter-ar-button{display:none!important}
 </style>
@@ -67,7 +100,37 @@
   <div>
     <p class="copy"><b>카메라를 포스터에 비춰 보세요</b>세 포스터 중 어느 것이든 화면 안에 들어오면 물결이 움직이기 시작해요.</p>
     <button class="btn" id="start">카메라로 보기</button>
+    <button class="btn line" id="openMap">파크 맵 보기</button>
     <button class="btn ghost" id="noCam">카메라 없이 영상으로 보기</button>
+  </div>
+</section>
+
+<section class="screen" id="mapScreen" hidden>
+  <header class="mhead">
+    <button class="mback" id="mapBack" aria-label="처음 화면으로">←</button>
+    <div><b>PARK MAP</b><span>구역을 누르면 움직이는 포스터가 열려요</span></div>
+  </header>
+  <div class="mwrap" id="mwrap">
+    <div class="mzoom">
+      <img src="park_map.jpg" width="1800" height="1142" alt="캐리비안베이 파크 맵. 왼쪽 아래 WAVE, 위쪽 RUSH, 오른쪽 FLOAT 구역이 있고 아래 가운데가 입구예요.">
+      <button class="hot" data-v="wave"  style="left:13.5%;top:47%;width:31%;height:39%" aria-label="WAVE 포스터 보기"></button>
+      <button class="hot" data-v="rush"  style="left:23%;top:14%;width:36%;height:32%" aria-label="RUSH 포스터 보기"></button>
+      <button class="hot" data-v="float" style="left:60%;top:13.5%;width:28%;height:50%" aria-label="FLOAT 포스터 보기"></button>
+      <span class="pin" style="left:20.5%;top:50.5%">▶</span>
+      <span class="pin" style="left:43.5%;top:26%">▶</span>
+      <span class="pin" style="left:63%;top:27.5%">▶</span>
+    </div>
+  </div>
+  <div class="mtools"><button id="zoomBtn">지도 크게 보기</button></div>
+  <div class="zones">
+    <button class="zone" data-v="float"><i style="background:#A9C1F4"></i><div><b>FLOAT</b><span>튜브 위의 여유</span></div><em>포스터 보기 ▶</em></button>
+    <button class="zone" data-v="rush"><i style="background:#1A3FE0"></i><div><b>RUSH</b><span>슬라이드의 짜릿함</span></div><em>포스터 보기 ▶</em></button>
+    <button class="zone" data-v="wave"><i style="background:#EE8A6B"></i><div><b>WAVE</b><span>다시 만난 해 질 녘</span></div><em>포스터 보기 ▶</em></button>
+  </div>
+  <div class="facil">
+    <h3>지도 속 아이콘</h3>
+    <ul><li>☂ 쉼터</li><li>🍴 식당</li><li>🚻 화장실</li><li>🏊 수영장</li><li>↑ 입구</li></ul>
+    <p>포스터 앞에서는 처음 화면의 ‘카메라로 보기’로 포스터를 비춰 보세요.</p>
   </div>
 </section>
 
@@ -129,8 +192,22 @@
   };
   document.querySelectorAll('#pick button').forEach(b => b.onclick = () => setFlat(b.dataset.v));
 
-  $('noCam').onclick = () => { $('intro').hidden = true; $('viewer').hidden = false; setFlat('float'); };
-  $('back').onclick = () => { $('flat').pause(); $('viewer').hidden = true; $('intro').hidden = false; };
+  const showScreen = id => ['intro', 'viewer', 'mapScreen'].forEach(k => $(k).hidden = k !== id);
+  let backTo = 'intro';
+  const openPoster = (key, from) => {
+    backTo = from; $('back').textContent = from === 'mapScreen' ? '지도로 돌아가기' : '처음으로';
+    showScreen('viewer'); setFlat(key);
+  };
+  $('noCam').onclick = () => openPoster('float', 'intro');
+  $('back').onclick = () => { $('flat').pause(); showScreen(backTo); };
+  $('openMap').onclick = () => { showScreen('mapScreen'); $('mapScreen').scrollTop = 0; };
+  $('mapBack').onclick = () => showScreen('intro');
+  document.querySelectorAll('#mapScreen [data-v]').forEach(b => b.onclick = () => openPoster(b.dataset.v, 'mapScreen'));
+  $('zoomBtn').onclick = () => {
+    const z = $('mwrap').classList.toggle('zoomed');
+    $('zoomBtn').textContent = z ? '한눈에 보기' : '지도 크게 보기';
+    if (z) requestAnimationFrame(() => { $('mwrap').scrollLeft = $('mwrap').scrollWidth * 0.2; $('mwrap').scrollTop = $('mwrap').scrollHeight * 0.18; });
+  };
 
   const ua = navigator.userAgent;
   const IOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
